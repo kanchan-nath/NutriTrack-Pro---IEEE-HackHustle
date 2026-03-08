@@ -101,7 +101,7 @@ const SYMPTOMS = [
 
 const MEALS_LIST = ["Breakfast", "Lunch", "Dinner", "Snacks"];
 const CONDITIONS = ["anemia", "diabetes", "pregnancy", "thyroid", "hypertension", "vegan", "vegetarian", "lactose intolerant"];
-const TABS = [{ id: "profile", icon: "👤", label: "Profile" }, { id: "meals", icon: "🍽", label: "Meals" }, { id: "symptoms", icon: "🩺", label: "Symptoms" }, { id: "dashboard", icon: "📊", label: "Dashboard" }, { id: "report", icon: "🧬", label: "AI Report" }];
+const TABS = [{ id: "profile", icon: "👤", label: "Profile" }, { id: "meals", icon: "🍽", label: "Meals" }, { id: "symptoms", icon: "🩺", label: "Symptoms" }, { id: "dashboard", icon: "📊", label: "Dashboard" }];
 
 // Colours
 const C = { bg: "#0e0f14", card: "#161821", border: "#252836", accent: "#f4a261", accentDark: "#c47840", green: "#06d6a0", red: "#ef233c", blue: "#4cc9f0", purple: "#9b5de5", text: "#e2e8f0", muted: "#6b7280", gold: "#ffd166" };
@@ -113,8 +113,6 @@ export default function NutriTrackPro() {
   const [inputs, setInputs] = useState({ Breakfast: "", Lunch: "", Dinner: "", Snacks: "" });
   const [sugg, setSugg] = useState({});
   const [symptoms, setSymptoms] = useState([]);
-  const [aiResult, setAiResult] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
   const [photoLoading, setPhotoLoading] = useState({});
   const [err, setErr] = useState("");
@@ -185,33 +183,6 @@ export default function NutriTrackPro() {
       setPhotoLoading(p => ({ ...p, [meal]: false }));
     };
     reader.readAsDataURL(file);
-  };
-
-  const analyze = async () => {
-    setLoading(true); setAiResult(null); setTab("report");
-    const mealStr = Object.entries(meals).map(([m, f]) => `${m}: ${f.length ? f.join(", ") : "nothing"}`).join(" | ");
-    const nutStr = Object.entries(totals).map(([k, v]) => `${NMETA[k]?.label}:${v.toFixed(1)}/${rdv[k]}(${pct(k)}%)`).join(", ");
-    const sympStr = symptoms.map(s => SYMPTOMS.find(x => x.id === s)?.label).join(", ") || "none";
-    const profStr = `${profile.name || "User"}, ${profile.age}yr ${profile.gender}, ${profile.weight}kg, sector:${profile.sector}, conditions:${profile.conditions.join(",") || "none"}, budget:Rs.${profile.budget}/day`;
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 1600,
-          system: `You are a senior clinical nutritionist. Return ONLY valid JSON, no markdown, no preamble. Keys: {"score":0-100,"riskLevel":"Low|Moderate|High|Critical","summary":"2 sentences","deficiencies":[{"nutrient":"","severity":"mild|moderate|severe","pct":0,"impact":"","urgency":""}],"symptomLinks":[{"symptom":"","cause":"","confidence":"high|medium|low"}],"topFoods":[{"food":"","why":"","cost":"cheap|moderate|expensive","tip":""}],"supplements":[{"name":"","dose":"","when":"","caution":""}],"mealPlan":[{"meal":"","foods":"","cost":"Rs.XX","nutrients":"key nutrients provided"}],"insight":"one powerful insight specific to their profile and sector","weeklyRisk":"what chronic risk if diet continues unchanged"}`,
-          messages: [{ role: "user", content: `Profile: ${profStr}\nMeals: ${mealStr}\nNutrients: ${nutStr}\nSymptoms: ${sympStr}\nAnalyze and return JSON.` }]
-        })
-      });
-      const data = await res.json();
-      const text = data.content.map(i => i.text || "").join("");
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-      setAiResult(parsed);
-      const entry = { date: new Date().toLocaleDateString("en-IN"), score: parsed.score, risk: parsed.riskLevel };
-      const nh = [entry, ...history].slice(0, 7);
-      setHistory(nh);
-      try { await window.storage.set("nt-history", JSON.stringify(nh)); } catch { }
-    } catch { setAiResult({ error: "Analysis failed. Please try again." }); }
-    setLoading(false);
   };
 
   const filteredFoods = Object.entries(FOOD_DB).filter(([, v]) => filterCat === "all" || v.cat === filterCat);
@@ -446,8 +417,8 @@ export default function NutriTrackPro() {
               </div>
             </div>
 
-            <button className="btn" onClick={analyze} style={{ padding: "13px 36px", background: C.accent, border: "none", borderRadius: 10, color: "#0e0f14", fontSize: 13, fontWeight: 700, cursor: "pointer", letterSpacing: 1, transition: "all 0.2s" }}>
-              🧬 RUN FULL AI ANALYSIS
+            <button className="btn" onClick={() => setTab("dashboard")} style={{ padding: "13px 36px", background: C.accent, border: "none", borderRadius: 10, color: "#0e0f14", fontSize: 13, fontWeight: 700, cursor: "pointer", letterSpacing: 1, transition: "all 0.2s" }}>
+              📊 GO TO DASHBOARD
             </button>
           </div>
         )}
@@ -509,168 +480,12 @@ export default function NutriTrackPro() {
               </div>
             )}
 
-            <button className="btn" onClick={analyze} style={{ padding: "12px 28px", background: C.accent, border: "none", borderRadius: 10, color: "#0e0f14", fontSize: 12, fontWeight: 700, cursor: "pointer", letterSpacing: 1, transition: "all 0.2s" }}>
-              🧬 GET AI RECOMMENDATIONS
-            </button>
+
           </div>
         )}
 
         {/* ── AI REPORT ── */}
-        {tab === "report" && (
-          <div className="fade">
-            {loading && (
-              <div style={{ textAlign: "center", padding: "60px 20px" }}>
-                <div style={{ width: 50, height: 50, border: "3px solid rgba(244,162,97,0.2)", borderTop: `3px solid ${C.accent}`, borderRadius: "50%", margin: "0 auto 20px", animation: "spin 0.8s linear infinite" }} />
-                <div style={{ fontFamily: "Syne", fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Analysing Your Diet</div>
-                <div style={{ color: C.muted, fontSize: 11, letterSpacing: 2 }}>CROSS-REFERENCING NUTRIENTS · SYMPTOM MAPPING · BUILDING MEAL PLAN</div>
-              </div>
-            )}
 
-            {!loading && !aiResult && (
-              <div style={{ textAlign: "center", padding: "50px 20px" }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>🧬</div>
-                <div style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Ready to Analyse</div>
-                <p style={{ color: C.muted, fontSize: 13, marginBottom: 20, maxWidth: 400, margin: "0 auto 20px" }}>Log your meals and symptoms first, then run the AI analysis for full deficiency detection, supplements, and a personalised meal plan.</p>
-                <button className="btn" onClick={analyze} style={{ padding: "13px 36px", background: C.accent, border: "none", borderRadius: 10, color: "#0e0f14", fontSize: 13, fontWeight: 700, cursor: "pointer", letterSpacing: 1 }}>RUN ANALYSIS NOW</button>
-              </div>
-            )}
-
-            {aiResult?.error && <div style={{ textAlign: "center", padding: 40, color: C.red }}>{aiResult.error}</div>}
-
-            {aiResult && !aiResult.error && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {/* Hero Score */}
-                <div style={{ background: C.card, borderRadius: 16, padding: 24, border: `1px solid ${C.border}`, display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: "Syne", fontWeight: 800, fontSize: 60, color: scoreC(aiResult.score), lineHeight: 1 }}>{aiResult.score}</div>
-                    <div style={{ fontSize: 9, letterSpacing: 2, color: C.muted, marginTop: 4 }}>HEALTH SCORE</div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 200 }}>
-                    <div style={{ fontFamily: "Syne", fontWeight: 700, fontSize: 18, color: scoreC(aiResult.score), marginBottom: 6 }}>{aiResult.riskLevel}</div>
-                    <p style={{ color: "#c0cce0", fontSize: 12, lineHeight: 1.6, marginBottom: 8 }}>{aiResult.summary}</p>
-                    {aiResult.insight && <div style={{ padding: "8px 12px", background: "rgba(244,162,97,0.08)", borderRadius: 8, fontSize: 12, color: C.accent, borderLeft: `3px solid ${C.accent}` }}>💡 {aiResult.insight}</div>}
-                  </div>
-                </div>
-
-                {/* Weekly risk */}
-                {aiResult.weeklyRisk && (
-                  <div style={{ background: "rgba(239,35,60,0.06)", border: "1px solid rgba(239,35,60,0.2)", borderRadius: 12, padding: "12px 16px", display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <span style={{ fontSize: 18 }}>⚠️</span>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: C.red, marginBottom: 2, letterSpacing: 1 }}>IF THIS DIET CONTINUES...</div>
-                      <div style={{ fontSize: 12, color: "#d0a0a0" }}>{aiResult.weeklyRisk}</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Deficiencies */}
-                {aiResult.deficiencies?.length > 0 && (
-                  <div style={{ background: C.card, borderRadius: 14, padding: 18, border: "1px solid rgba(239,35,60,0.2)" }}>
-                    <div style={{ fontSize: 10, letterSpacing: 2, color: C.red, marginBottom: 12, fontWeight: 600 }}>⚠ DETECTED DEFICIENCIES ({aiResult.deficiencies.length})</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {aiResult.deficiencies.map((d, i) => {
-                        const sc = d.severity === "severe" ? C.red : d.severity === "moderate" ? "#ff8c42" : C.gold;
-                        return (
-                          <div key={i} style={{ background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: "12px 14px", borderLeft: `3px solid ${sc}`, display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-                            <div style={{ background: sc, borderRadius: 6, padding: "2px 8px", fontSize: 9, color: "#0e0f14", fontWeight: 700, letterSpacing: 1, whiteSpace: "nowrap" }}>{d.severity?.toUpperCase()}</div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>{d.nutrient} <span style={{ fontSize: 11, color: sc, fontWeight: 400 }}>({d.pct}% of RDV)</span> {d.urgency && <span style={{ fontSize: 10, color: C.muted }}>· address in {d.urgency}</span>}</div>
-                              <div style={{ fontSize: 11, color: C.muted }}>{d.impact}</div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Symptom Links */}
-                {aiResult.symptomLinks?.length > 0 && (
-                  <div style={{ background: C.card, borderRadius: 14, padding: 18, border: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 10, letterSpacing: 2, color: "#9b5de5", marginBottom: 12, fontWeight: 600 }}>🔗 SYMPTOM → NUTRIENT LINKS</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 8 }}>
-                      {aiResult.symptomLinks.map((sl, i) => (
-                        <div key={i} style={{ background: "rgba(155,93,229,0.06)", borderRadius: 10, padding: "10px 12px", border: "1px solid rgba(155,93,229,0.2)" }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 3 }}>{sl.symptom}</div>
-                          <div style={{ fontSize: 11, color: C.muted }}>→ <span style={{ color: "#9b5de5" }}>{sl.cause}</span> deficiency <span style={{ fontSize: 9, color: "#4a4a5a" }}>({sl.confidence})</span></div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Top Foods */}
-                {aiResult.topFoods?.length > 0 && (
-                  <div style={{ background: C.card, borderRadius: 14, padding: 18, border: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 10, letterSpacing: 2, color: C.green, marginBottom: 12, fontWeight: 600 }}>🥦 FOODS TO ADD TO YOUR DIET</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
-                      {aiResult.topFoods.map((f, i) => (
-                        <div key={i} style={{ background: "rgba(6,214,160,0.05)", borderRadius: 10, padding: 14, border: "1px solid rgba(6,214,160,0.2)" }}>
-                          <div style={{ fontFamily: "Syne", fontWeight: 700, fontSize: 14, color: C.green, marginBottom: 4 }}>{f.food}</div>
-                          <div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>{f.why}</div>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10 }}>
-                            <span style={{ padding: "2px 8px", borderRadius: 10, background: f.cost === "cheap" ? "rgba(6,214,160,0.15)" : f.cost === "moderate" ? "rgba(255,209,102,0.15)" : "rgba(239,35,60,0.15)", color: f.cost === "cheap" ? C.green : f.cost === "moderate" ? C.gold : C.red }}>{f.cost}</span>
-                            {f.tip && <span style={{ color: C.muted, fontSize: 9 }}>{f.tip}</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Supplements */}
-                {aiResult.supplements?.length > 0 && (
-                  <div style={{ background: C.card, borderRadius: 14, padding: 18, border: "1px solid rgba(76,201,240,0.2)" }}>
-                    <div style={{ fontSize: 10, letterSpacing: 2, color: C.blue, marginBottom: 12, fontWeight: 600 }}>💊 SUPPLEMENT RECOMMENDATIONS</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {aiResult.supplements.map((s, i) => (
-                        <div key={i} style={{ background: "rgba(76,201,240,0.05)", borderRadius: 10, padding: "12px 14px", border: "1px solid rgba(76,201,240,0.15)", display: "flex", gap: 14, flexWrap: "wrap" }}>
-                          <div style={{ minWidth: 120 }}>
-                            <div style={{ fontFamily: "Syne", fontWeight: 700, fontSize: 13, color: C.blue }}>{s.name}</div>
-                            <div style={{ fontSize: 11, color: C.muted }}>{s.dose}</div>
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>When: {s.when}</div>
-                            {s.caution && <div style={{ fontSize: 11, color: C.gold }}>⚠ {s.caution}</div>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ marginTop: 8, fontSize: 10, color: C.muted, fontStyle: "italic" }}>⚕ Consult a physician before starting any supplement.</div>
-                  </div>
-                )}
-
-                {/* Meal Plan */}
-                {aiResult.mealPlan?.length > 0 && (
-                  <div style={{ background: C.card, borderRadius: 14, padding: 18, border: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 10, letterSpacing: 2, color: C.accent, marginBottom: 12, fontWeight: 600 }}>🍽 TOMORROW'S PERSONALISED MEAL PLAN</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {aiResult.mealPlan.map((m, i) => (
-                        <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "12px 14px", background: "rgba(255,255,255,0.02)", borderRadius: 10, border: `1px solid ${C.border}`, flexWrap: "wrap" }}>
-                          <div style={{ minWidth: 80, fontFamily: "Syne", fontWeight: 700, fontSize: 13, color: C.accent }}>{m.meal}</div>
-                          <div style={{ flex: 1, fontSize: 12, color: "#c0cce0", lineHeight: 1.5 }}>{m.foods}</div>
-                          <div style={{ display: "flex", gap: 8, flexDirection: "column", alignItems: "flex-end" }}>
-                            {m.cost && <span style={{ fontSize: 11, color: C.green, fontWeight: 600 }}>{m.cost}</span>}
-                            {m.nutrients && <span style={{ fontSize: 9, color: C.muted }}>{m.nutrients}</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {aiResult.mealPlan.length > 0 && (
-                      <div style={{ marginTop: 10, textAlign: "right", fontSize: 11, color: C.accent, fontWeight: 600 }}>
-                        {aiResult.mealPlan.reduce((s, m) => s + parseInt(m.cost?.replace(/[^0-9]/g, "") || "0"), 0) > 0 &&
-                          `Est. total: ₹${aiResult.mealPlan.reduce((s, m) => s + parseInt(m.cost?.replace(/[^0-9]/g, "") || "0"), 0)} ${aiResult.mealPlan.reduce((s, m) => s + parseInt(m.cost?.replace(/[^0-9]/g, "") || "0"), 0) <= profile.budget ? "✓ within budget" : "— exceeds budget"}`
-                        }
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <button onClick={analyze} style={{ padding: "11px 24px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.accent}`, borderRadius: 10, color: C.accent, fontSize: 12, fontWeight: 600, cursor: "pointer", letterSpacing: 1 }}>↻ RE-ANALYSE</button>
-              </div>
-            )}
-          </div>
-        )}
 
         <div style={{ marginTop: 32, textAlign: "center", fontSize: 9, color: "#2a3040", letterSpacing: 2, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
           NUTRITRACK PRO · AI NUTRITION INTELLIGENCE · FOR EDUCATIONAL USE · CONSULT A REGISTERED DIETITIAN FOR MEDICAL ADVICE
