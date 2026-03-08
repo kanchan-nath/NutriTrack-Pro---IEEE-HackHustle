@@ -413,7 +413,7 @@ export default function NutriTrackPro() {
 
             <div style={{ display: "flex", gap: 12, marginTop: 14, flexWrap: "wrap" }}>
               <button className="btn" onClick={() => setTab("symptoms")} style={{ padding: "12px 28px", background: C.accent, border: "none", borderRadius: 10, color: "#0e0f14", fontSize: 12, fontWeight: 700, cursor: "pointer", letterSpacing: 1, transition: "all 0.2s" }}>ADD SYMPTOMS →</button>
-              <button className="btn" onClick={analyze} style={{ padding: "12px 28px", background: "rgba(6,214,160,0.15)", border: `1px solid ${C.green}`, borderRadius: 10, color: C.green, fontSize: 12, fontWeight: 700, cursor: "pointer", letterSpacing: 1 }}>🧬 SKIP TO AI ANALYSIS</button>
+              <button className="btn" onClick={() => setTab("dashboard")} style={{ padding: "12px 28px", background: "rgba(6,214,160,0.15)", border: `1px solid ${C.green}`, borderRadius: 10, color: C.green, fontSize: 12, fontWeight: 700, cursor: "pointer", letterSpacing: 1 }}>📊 VIEW NUTRIENT DASHBOARD</button>
             </div>
           </div>
         )}
@@ -510,7 +510,7 @@ export default function NutriTrackPro() {
             )}
 
             <button className="btn" onClick={analyze} style={{ padding: "12px 28px", background: C.accent, border: "none", borderRadius: 10, color: "#0e0f14", fontSize: 12, fontWeight: 700, cursor: "pointer", letterSpacing: 1, transition: "all 0.2s" }}>
-              🧬 GET RECOMMENDATIONS
+              🧬 GET AI RECOMMENDATIONS
             </button>
           </div>
         )}
